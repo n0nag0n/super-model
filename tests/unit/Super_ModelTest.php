@@ -1,28 +1,24 @@
 <?php
 
 use PHPUnit\Framework\TestCase;
-use n0nag0n\Super_Model;
 
 class Super_ModelTest extends TestCase {
 
 	public function setUp(): void {
-		$this->pdo = new PDO('sqlite:test.db', 'test', 'test');
+		$this->pdo = new PDO('sqlite::memory:', 'test', 'test');
 		$this->obj = new Example_Model($this->pdo);
 	}
 
-	public function tearDown(): void {
-		$this->dropDbTable();
-	}
-
-	public function dropDbTable() {
-		$this->pdo->exec("DROP TABLE IF EXISTS 'example_model'");
-	}
-
-	public function populateDbTable() {
-		$this->pdo->exec("CREATE TABLE IF NOT EXISTS 'example_model' ('id' INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 'int_field' INTEGER NOT NULL, 'string_field' TEXT, 'date_field' TEXT)");
-	}
-
 	public function testConstruct() {
+
+		try {
+			$model = new Example_Model_No_Table($this->pdo);
+			PHPUnitUtil::callMethod($model, 'processAllFilters', [ [ 'it' => 'should not', 'matter' ] ]);
+			$this->fail('Should have failed');
+		} catch(Exception $e) {
+			$this->assertSame('table not defined in final model', $e->getMessage());
+		}
+
 		try {
 			new Example_Model;
 			$this->fail('Should have failed');
@@ -213,6 +209,20 @@ class Super_ModelTest extends TestCase {
 		$this->assertSame('field', $field);
 		$this->assertSame('value', $value);
 		$this->assertSame('NOT LIKE ?', $result);
+
+		$field = 'field-in';
+		$value = [ 'many', 'values' ];
+		$result = PHPUnitUtil::callMethod($this->obj, 'processOperator', [ &$field, &$value ]);
+		$this->assertSame('field', $field);
+		$this->assertSame([ 'many', 'values' ], $value);
+		$this->assertSame('IN(??)', $result);
+
+		$field = 'field-not in';
+		$value = [ 'many', 'values' ];
+		$result = PHPUnitUtil::callMethod($this->obj, 'processOperator', [ &$field, &$value ]);
+		$this->assertSame('field', $field);
+		$this->assertSame([ 'many', 'values' ], $value);
+		$this->assertSame('NOT IN(??)', $result);
 
 		$field = 'field';
 		$value = null;
@@ -465,5 +475,103 @@ class Super_ModelTest extends TestCase {
 		$result = PHPUnitUtil::callMethod($this->obj, 'processSelectFields', [ &$filters ]);
 		$this->assertSame([ 'some_field' => 'whatever' ], $filters);
 		$this->assertSame('SELECT `example_model`.`field`, `example_model`.`another_one`', $result);
+	}
+
+	public function testGetSelectSql() {
+		$result = PHPUnitUtil::callMethod($this->obj, 'getSelectSql', [ 'select field', 'a table' ]);
+		$this->assertSame('select field FROM `a table` ', $result);
+
+		$result = PHPUnitUtil::callMethod($this->obj, 'getSelectSql', [ "select DATE_FORMAT(some_field, '%Y-%m-%d') cool_date", 'a table', '' ]);
+		$this->assertSame("select DATE_FORMAT(some_field, '%Y-%m-%d') cool_date FROM `a table` ", $result);
+
+		$result = PHPUnitUtil::callMethod($this->obj, 'getSelectSql', [ "select DATE_FORMAT(some_field, '%Y-%m-%d') cool_date", 'a table', '', '', '', '', '', '', 'OFFSET 50000' ]);
+		$this->assertSame("select DATE_FORMAT(some_field, '%Y-%m-%d') cool_date FROM `a table` OFFSET 50000", $result);
+
+		$result = PHPUnitUtil::callMethod($this->obj, 'getSelectSql', [ "select DATE_FORMAT(some_field, '%Y-%m-%d') cool_date", 'a table', 'INNER JOIN a_funny_joke ON april.5th', 'WHERE nobody = cares', 'GROUP BY nunya_business', 'HAVING a_big_problem', 'ORDER BY some_young_guy', 'LIMIT if you must', 'OFFSET 50000' ]);
+		$this->assertSame("select DATE_FORMAT(some_field, '%Y-%m-%d') cool_date FROM `a table` INNER JOIN a_funny_joke ON april.5th WHERE nobody = cares GROUP BY nunya_business HAVING a_big_problem ORDER BY some_young_guy LIMIT if you must OFFSET 50000", $result);
+	}
+
+	public function testProcessAllFilters() {
+
+		try {
+			PHPUnitUtil::callMethod($this->obj, 'processAllFilters', [ [ ] ]);
+			$this->fail('Should have failed');
+		} catch(Exception $e) {
+			$this->assertSame('Cannot run wide open query against the table', $e->getMessage());
+		}
+
+		$model = new Example_Model_Wide_Open($this->pdo);
+		$result = PHPUnitUtil::callMethod($model, 'processAllFilters', [ [ ] ]);
+		$this->assertSame([
+			'select_fields' => 'SELECT `example_model`.*',
+			'joins' => '',
+			'group_by' => '',
+			'having' => '',
+			'order_by' => '',
+			'limit' => '',
+			'offset' => '',
+			'where' => '',
+			'params' => [],
+			'sql' => 'SELECT `example_model`.* FROM `example_model` '
+		], $result);
+
+		$result = PHPUnitUtil::callMethod($this->obj, 'processAllFilters', [ [ 'some_field' => 5 ] ]);
+		$this->assertSame([
+			'select_fields' => 'SELECT `example_model`.*',
+			'joins' => '',
+			'group_by' => '',
+			'having' => '',
+			'order_by' => '',
+			'limit' => '',
+			'offset' => '',
+			'where' => 'WHERE `example_model`.`some_field` = ?',
+			'params' => [ 5 ],
+			'sql' => 'SELECT `example_model`.* FROM `example_model` WHERE `example_model`.`some_field` = ?'
+		], $result);
+
+		$result = PHPUnitUtil::callMethod($this->obj, 'processAllFilters', [ [ 'some_field-!=' => 'bananas', 'group_by' => 'some bailing wire' ] ]);
+		$this->assertSame([
+			'select_fields' => 'SELECT `example_model`.*',
+			'joins' => '',
+			'group_by' => 'GROUP BY some bailing wire',
+			'having' => '',
+			'order_by' => '',
+			'limit' => '',
+			'offset' => '',
+			'where' => 'WHERE `example_model`.`some_field` != ?',
+			'params' => [ 'bananas' ],
+			'sql' => 'SELECT `example_model`.* FROM `example_model` WHERE `example_model`.`some_field` != ? GROUP BY some bailing wire'
+		], $result);
+
+		$result = PHPUnitUtil::callMethod($this->obj, 'processAllFilters', [ [ 'some_field-!=' => 'bananas', 'another_field' => 'not null', 'one_more_thing' => null, 'group_by' => 'some bailing wire' ] ]);
+		$this->assertSame([
+			'select_fields' => 'SELECT `example_model`.*',
+			'joins' => '',
+			'group_by' => 'GROUP BY some bailing wire',
+			'having' => '',
+			'order_by' => '',
+			'limit' => '',
+			'offset' => '',
+			'where' => 'WHERE `example_model`.`some_field` != ? AND `example_model`.`another_field` IS NOT NULL AND `example_model`.`one_more_thing` IS NULL',
+			'params' => [ 'bananas' ],
+			'sql' => 'SELECT `example_model`.* FROM `example_model` WHERE `example_model`.`some_field` != ? AND `example_model`.`another_field` IS NOT NULL AND `example_model`.`one_more_thing` IS NULL GROUP BY some bailing wire'
+		], $result);
+	}
+
+	public function testMapResultToModel() {
+		try {
+			PHPUnitUtil::callMethod($this->obj, 'mapResultToModel', [ [ [ 'hi' => 'there' ] ] ]);
+			$this->fail('Should have failed');
+		} catch(Exception $e) {
+			$this->assertSame('cannot map multi-dimentional arrays', $e->getMessage());
+		}
+
+		PHPUnitUtil::callMethod($this->obj, 'mapResultToModel', [ [ 'hi' => 'there' ] ]);
+		$this->assertSame('there', $this->obj->hi);
+
+		unset($this->obj->hi);
+		PHPUnitUtil::callMethod($this->obj, 'mapResultToModel', [ [ 'hi again@whaever~!ok' => 'man' ] ]);
+		$this->assertSame('man', $this->obj->{'hi again@whaever~!ok'});
+
 	}
 }

@@ -19,7 +19,8 @@
             "n0nag0n\\": "src/"
 		},
 		"classmap": [
-			"tests/unit"
+			"tests/unit",
+			"tests/integration"
 		]
 	},
 	"config" : {

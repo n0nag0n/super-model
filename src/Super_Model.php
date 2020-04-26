@@ -10,6 +10,10 @@ abstract class Super_Model {
 
 	public function __construct($db = null) {
 
+		if(empty($this->table)) {
+			throw new Exception('table not defined in final model');
+		}
+
 		// for use with Fat-Free Framework https://github.com/bcosca/fatfree
 		$db = $db ?: (class_exists('Base') ? Base::instance()->db : null);
 		if(!is_object($db) || !($db instanceof PDO)) {
@@ -224,11 +228,6 @@ abstract class Super_Model {
 	}
 
 	protected function processAllFilters(array $filters): array {
-
-		if(empty($this->table)) {
-			throw new Exception('table not defined in final model');
-		}
-
 		$select_fields = $this->processSelectFields($filters);
 		$joins = $this->processJoins($filters);
 		$group_by = $this->processGroupBy($filters);
@@ -243,7 +242,7 @@ abstract class Super_Model {
 			throw new Exception('Cannot run wide open query against the table');
 		}
 
-		$params = array_values($filters);
+		$params = $this->processParams($filters);
 
 		$sql = $this->getSelectSql($select_fields, $this->table, $joins, $where, $group_by, $having, $order_by, $limit, $offset);
 
@@ -273,6 +272,10 @@ abstract class Super_Model {
 		];
 		$array = array_filter($array, function($value) { return $value !== ''; });
 		return "{$select_fields} FROM `{$table}` ".join(' ', $array);
+	}
+
+	protected function processParams(array $filters) {
+		return array_values(array_filter($filters, function($value) { return $value !== null; }));
 	}
 
 	protected function processSelectFields(array &$filters): string {
