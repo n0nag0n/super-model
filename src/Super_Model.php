@@ -1,4 +1,5 @@
 <?php
+declare(strict_types = 1);
 
 
 
@@ -7,7 +8,7 @@
 
 
 
-need to still test processresult and then build out joining infrastructure
+need to still test processresult and then build out joining infrastructure, also need to do more getBy* tests
 
 
 
@@ -203,7 +204,7 @@ abstract class Super_Model {
 		$statement = $this->db->prepare($sql);
 		$statement->execute($params);
 		
-		return $this->db->lastInsertId();
+		return intval($this->db->lastInsertId());
 	}
 
 	protected function processCreateData(array $data): array {
@@ -448,8 +449,11 @@ abstract class Super_Model {
 		$data = explode('-', $field, 2);
 
 		if(count($data) === 1) {
-			$compare_value = $value;
-			$compare_value = strtoupper($compare_value);
+			$compare_value = '';
+			if(is_string($value)) {
+				$compare_value = $value;
+				$compare_value = strtoupper($compare_value);
+			}
 			if($value === null || $compare_value === 'IS NULL' || $compare_value === 'NULL') {
 				$value = null;
 				return 'IS NULL';
