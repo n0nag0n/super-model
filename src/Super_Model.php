@@ -1,21 +1,51 @@
 <?php
 
+
+
+/*
+
+
+
+
+need to still test processresult and then build out joining infrastructure
+
+
+
+
+
+
+
+
+*/
+
+
+
+
+
+
+
+
+
+
 namespace n0nag0n;
 
 use Exception;
 use PDO;
 
 abstract class Super_Model {
-	protected $db, $table, $disallow_wide_open_queries = true, $is_testing = false;
+	protected $db, $table, $disallow_wide_open_queries = true, $is_testing = false, $db_values = [];
 
-	public function __construct($db = null) {
+	/**
+	 * The public construct
+	 *
+	 * @param PDO $db
+	 */
+	public function __construct(PDO $db = null) {
 
 		if(empty($this->table)) {
 			throw new Exception('table not defined in final model');
 		}
 
-		// for use with Fat-Free Framework https://github.com/bcosca/fatfree
-		$db = $db ?: (class_exists('Base') ? Base::instance()->db : null);
 		if(!is_object($db) || !($db instanceof PDO)) {
 			throw new Exception('$db needs to be instance of PDO');
 		}
@@ -23,28 +53,58 @@ abstract class Super_Model {
 		$this->db = $db;
 	}
 
+	/**
+	 * Sets the key attached to the db_values array
+	 *
+	 * @param mixed $key
+	 * @param mixed $val
+	 */
+	// @codeCoverageIgnoreStart
 	public function __set($key, $val) {
-		$this->{$key} = $val;
+		$this->db_values[$key] = $val;
 	}
 
+	/**
+	 * Gets the key from db_values
+	 *
+	 * @param [type] $key
+	 * @return mixed
+	 */
 	public function __get($key) {
-		return $this->{$key};
+		return $this->db_values[$key];
 	}
 
-	public function __isset($key) {  
-		return isset($this->{$key});  
+	/**
+	 * Checks if key is set in db_values
+	 *
+	 * @param mixed $key
+	 * @return boolean
+	 */
+	public function __isset($key) {
+		return isset($this->db_values[$key]);  
 	}
 
+	/**
+	 * Unsets key in db_values
+	 *
+	 * @param mixed $key
+	 */
 	public function __unset($key) {  
-		unset($this->{$key});  
+		unset($this->db_values[$key]);  
 	}
 
-	public function __call($method, $parameters) {
+	/**
+	 * Allows you to use "getBy[table_field]" or "getAllBy[table_field]" Ex: getAllByCompany_Id(5), getById(1), getByToken('abalkjdoiad')
+	 *
+	 * @param string $method
+	 * @param array $parameters
+	 * @return void
+	 */
+	public function __call(string $method, array $parameters) {
 		$has_get_by = strpos($method, 'getBy') !== false;
 		$has_get_by_all = strpos($method, 'getAllBy') !== false;
 		if($has_get_by || $has_get_by_all) {
-			$field = strtolower(str_replace([ 'getBy', 'getByAll' ], '', $method));
-
+			$field = strtolower(str_ireplace([ 'getBy', 'getAllBy' ], '', $method));
 			if(empty($field)) {
 				throw new Exception('unable to parse out field');
 			}
@@ -53,37 +113,67 @@ abstract class Super_Model {
 				throw new Exception('no value supplied');
 			}
 			$value = $parameters[0];
-			$ttl = $parameters[1] ?? 0;
 
 			$method_to_call = $has_get_by ? '_getSingleRowBy' : '_getAllRowsBy';
-			return $this->{$method_to_call}($field, $value, $ttl);
+			return $this->{$method_to_call}($field, $value);
 		}
 	}
+	// @codeCoverageIgnoreEnd
 
+	/**
+	 * Returns PDO connection
+	 *
+	 * @return PDO
+	 */
 	public function getDbConnection() {
 		return $this->db;
 	}
 
-	protected function _getSingleRowBy(string $field, $value, int $ttl = 0) {
-		$result = $this->getAll([ $field => $value ], true, $ttl);
+	/**
+	 * Used by __call('getBy*') to pull out a single row from the database
+	 *
+	 * @param string $field
+	 * @param mixed $value
+	 * @return mixed
+	 */
+	protected function _getSingleRowBy(string $field, $value) {
+		$result = $this->getAll([ $field => $value, 'limit' => 1 ], true);
 		if(is_array($result) && count($result)) {
 			$this->mapResultToModel($result);
 		}
 		return $result;
 	}
 
-	protected function _getAllRowsBy(string $field, $value, int $ttl = 0) {
-		$result = $this->getAll([ $field => $value ], false, $ttl);
+	/**
+	 * Used by __call('getAllBy*') to pull out rows from the database
+	 *
+	 * @param string $field
+	 * @param mixed $value
+	 * @return mixed
+	 */
+	protected function _getAllRowsBy(string $field, $value) {
+		$result = $this->getAll([ $field => $value ], false);
 		return $result;
 	}
 
-	public function getAll(array $filters = [], $return_one_row = false, int $ttl = 0) {
+	/**
+	 * Main function to pull out data from the database. 
+	 *
+	 * @example $model->getAll([ 'some_field' => 1, 'another_field->=' => 5, 'group_by' => 'another_field', 'having' => 'another_field > 10' ]);
+	 * @param array $filters
+	 * @param boolean $return_one_row
+	 * @return array
+	 */
+	public function getAll(array $filters = [], $return_one_row = false) {
 
 		$processed_filters = $this->processAllFilters($filters);
-		extract($processed_filters);
+		$sql = $processed_filters['sql'];
+		$params = $processed_filters['params'];
 
-		$results = $this->db->exec($sql, $params, $ttl);
-
+		$statement = $this->db->prepare($sql);
+		$statement->execute($params);
+		$results = $statement->fetchAll();
+		
 		$results = $this->processResults($filters, $results);
 
 		return $return_one_row ? $results[0] : $results;
@@ -107,7 +197,8 @@ abstract class Super_Model {
 	public function create(array $data): int {
 
 		$create_data = $this->processCreateData($data);
-		extract($create_data);
+		$sql = $create_data['sql'];
+		$params = $create_data['params'];
 
 		$statement = $this->db->prepare($sql);
 		$statement->execute($params);
@@ -174,7 +265,8 @@ abstract class Super_Model {
 	public function update(array $data, string $update_field = 'id'): int {
 
 		$update_data = $this->processUpdateData($data, $update_field);
-		extract($update_data);
+		$sql = $update_data['sql'];
+		$params = $update_data['params'];
 
 		$statement = $this->db->prepare($sql);
 		$statement->execute($params);
@@ -275,7 +367,10 @@ abstract class Super_Model {
 	}
 
 	protected function processParams(array $filters) {
-		return array_values(array_filter($filters, function($value) { return $value !== null; }));
+		$filters = array_filter($filters, function($value) { 
+			return $value !== null; 
+		});
+		return array_values($filters);
 	}
 
 	protected function processSelectFields(array &$filters): string {

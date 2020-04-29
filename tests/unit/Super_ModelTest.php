@@ -3,6 +3,7 @@
 use PHPUnit\Framework\TestCase;
 
 class Super_ModelTest extends TestCase {
+	protected $pdo, $obj;
 
 	public function setUp(): void {
 		$this->pdo = new PDO('sqlite::memory:', 'test', 'test');
@@ -29,15 +30,15 @@ class Super_ModelTest extends TestCase {
 		try {
 			new Example_Model('hi');
 			$this->fail('Should have failed');
-		} catch(Exception $e) {
-			$this->assertStringContainsString('$db needs to be instance of PDO', $e->getMessage());
+		} catch(Throwable $e) {
+			$this->assertStringContainsString('must be an instance of PDO or null, string given', $e->getMessage());
 		}
 
 		try {
 			new Example_Model(new stdClass);
 			$this->fail('Should have failed');
-		} catch(Exception $e) {
-			$this->assertStringContainsString('$db needs to be instance of PDO', $e->getMessage());
+		} catch(Throwable $e) {
+			$this->assertStringContainsString('must be an instance of PDO or null, instance of stdClass given', $e->getMessage());
 		}
 
 		$obj = new Example_Model($this->pdo);
@@ -573,5 +574,31 @@ class Super_ModelTest extends TestCase {
 		PHPUnitUtil::callMethod($this->obj, 'mapResultToModel', [ [ 'hi again@whaever~!ok' => 'man' ] ]);
 		$this->assertSame('man', $this->obj->{'hi again@whaever~!ok'});
 
+	}
+
+	public function testProcessParams() {
+		$filters = [];
+		$result = PHPUnitUtil::callMethod($this->obj, 'processParams', [ $filters ]);
+		$this->assertSame($filters, $result);
+
+		$filters = [ 'hi' => 'there' ];
+		$result = PHPUnitUtil::callMethod($this->obj, 'processParams', [ $filters ]);
+		$this->assertSame([ 0 => 'there'], $result);
+
+		$filters = [ 'hi' => '' ];
+		$result = PHPUnitUtil::callMethod($this->obj, 'processParams', [ $filters ]);
+		$this->assertSame([ 0 => '' ], $result);
+
+		$filters = [ 0 => 'weee' ];
+		$result = PHPUnitUtil::callMethod($this->obj, 'processParams', [ $filters ]);
+		$this->assertSame([ 0 => 'weee' ], $result);
+
+		$filters = [ 0 => 'weee', 1 => null ];
+		$result = PHPUnitUtil::callMethod($this->obj, 'processParams', [ $filters ]);
+		$this->assertSame([ 0 => 'weee' ], $result);
+
+		$filters = [ 0 => 'weee', 'thanks' => null, 'ok' => 'whatever' ];
+		$result = PHPUnitUtil::callMethod($this->obj, 'processParams', [ $filters ]);
+		$this->assertSame([ 0 => 'weee', 1 => 'whatever' ], $result);
 	}
 }

@@ -3,7 +3,8 @@
     "description": "A simple base model you can extend to reduce your hard coded SQL queries.",
     "type": "library",
     "require-dev": {
-        "phpunit/phpunit": "^8.5"
+        "phpunit/phpunit": "^8.5",
+        "phpstan/phpstan": "^0.12.19"
     },
     "license": "MIT",
     "authors": [
