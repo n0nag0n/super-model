@@ -132,6 +132,13 @@ class Super_Model_IntegrationTest extends TestCase {
 		$this->assertSame('2020-02-02 12:00:00', $result2['date_field']);
 
 		$this->assertArrayNotHasKey(2, $results);
+
+		$results = $this->obj->getAllByDate_field('2020-02-02 10:00:00');
+		$result1 = $results[0];
+		$this->assertSame('1', $result1['id']);
+		$this->assertSame('2', $result1['int_field']);
+		$this->assertSame('50', $result1['string_field']);
+		$this->assertSame('2020-02-02 10:00:00', $result1['date_field']);
 	}
 
 	public function testGetBySomething() {
@@ -160,10 +167,16 @@ class Super_Model_IntegrationTest extends TestCase {
 		$this->assertSame('50', $result['string_field']);
 		$this->assertSame('2020-02-02 10:00:00', $result['date_field']);
 
-		$results = $this->obj->getByInt_field(2);
-		$this->assertSame('1', $result['id']);
+		$result = $this->obj->getById(2);
+		$this->assertSame('2', $result['id']);
 		$this->assertSame('2', $result['int_field']);
-		$this->assertSame('50', $result['string_field']);
-		$this->assertSame('2020-02-02 10:00:00', $result['date_field']);
+		$this->assertSame('hi', $result['string_field']);
+		$this->assertSame('2020-02-02 12:00:00', $result['date_field']);
+
+		$result = $this->obj->getByid(2);
+		$this->assertSame('2', $result['id']);
+		$this->assertSame('2', $result['int_field']);
+		$this->assertSame('hi', $result['string_field']);
+		$this->assertSame('2020-02-02 12:00:00', $result['date_field']);
 	}
 }

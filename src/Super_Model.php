@@ -1,33 +1,6 @@
 <?php
 declare(strict_types = 1);
 
-
-
-/*
-
-
-
-
-need to still test processresult and then build out joining infrastructure, also need to do more getBy* tests
-
-
-
-
-
-
-
-
-*/
-
-
-
-
-
-
-
-
-
-
 namespace n0nag0n;
 
 use Exception;
@@ -68,7 +41,7 @@ abstract class Super_Model {
 	/**
 	 * Gets the key from db_values
 	 *
-	 * @param [type] $key
+	 * @param string $key
 	 * @return mixed
 	 */
 	public function __get($key) {
@@ -170,31 +143,56 @@ abstract class Super_Model {
 		$processed_filters = $this->processAllFilters($filters);
 		$sql = $processed_filters['sql'];
 		$params = $processed_filters['params'];
+		$process_results_filters = $processed_filters['process_results_filters'];
 
 		$statement = $this->db->prepare($sql);
 		$statement->execute($params);
 		$results = $statement->fetchAll();
 		
-		$results = $this->processResults($filters, $results);
+		$results = $this->processResults($process_results_filters, $results);
 
 		return $return_one_row ? $results[0] : $results;
 	}
 
-	public function processResults(array $filters, array $results): array {
-		if(count($results)) {
+	/**
+	 * This allows you to manipulate the results fetched from getAll() and add new keys to your array.
+	 * 	Create a function in your model like below:
+	 * public function processResult(array $process_results_filters, array $result): array {
+	 * 		if(isset($process_results_filters['some_field']) && $process_results_filters['some_field'] === true) {
+	 *			$result['added_new_field'] = 'totally true';
+	 *		}
+	 * 		return $result;
+	 * }
+	 *
+	 * @param array $process_results_filters
+	 * @param array $results
+	 * @return array
+	 */
+	protected function processResults(array $process_results_filters, array $results): array {
+		if(is_array($results) && count($results)) {
+			$run_results = method_exists($this, 'processResult');
+
+			if(!$run_results) {
+				return $results;
+			}
+
 			foreach($results as $key => $result) {
-				if(is_array($result)) {
-					$results[$key] = $this->processResult($filters, $result);
+				if(!is_array($result)) {
+					continue;
 				}
+
+				$results[$key] = $this->processResult($process_results_filters, $result);
 			}
 		}
 		return $results;
 	}
 
-	public function processResult(array $filters, array $result): array {
-		return $result;
-	}
-
+	/**
+	 * Creates a new row or rows for your model
+	 *
+	 * @param array $data
+	 * @return integer lastInsertId() result
+	 */
 	public function create(array $data): int {
 
 		$create_data = $this->processCreateData($data);
@@ -207,6 +205,12 @@ abstract class Super_Model {
 		return intval($this->db->lastInsertId());
 	}
 
+	/**
+	 * Takes the data supplied and generates the sql
+	 *
+	 * @param array $data
+	 * @return array
+	 */
 	protected function processCreateData(array $data): array {
 		$fields = $this->getCreateFields($data);
 		$placeholders = $this->getCreatePlaceholders($data);
@@ -219,6 +223,12 @@ abstract class Super_Model {
 		];
 	}
 
+	/**
+	 * Gets the create params for prepared statement
+	 *
+	 * @param array $data
+	 * @return array
+	 */
 	protected function getCreateParams(array $data): array {
 		$params = [];
 		if(is_array($data) && isset($data[0])) {
@@ -231,7 +241,15 @@ abstract class Super_Model {
 		return $params;
 	}
 
-	protected function getCreateSql($table, $fields, $placeholders) {
+	/**
+	 * Gets the sql statement that will run the create code.
+	 *
+	 * @param string $table
+	 * @param string $fields
+	 * @param string|array $placeholders (for multiple inserts)
+	 * @return string
+	 */
+	protected function getCreateSql(string $table, string $fields, $placeholders) {
 		if(is_array($placeholders) && isset($placeholders[0])) {
 			$placeholder_sql = [];
 			foreach($placeholders as $placeholder) {
@@ -244,6 +262,12 @@ abstract class Super_Model {
 		return "INSERT INTO `{$table}` ({$fields}) VALUES {$placeholder_sql}";
 	}
 
+	/**
+	 * Gets the string for the fields created for the table
+	 *
+	 * @param array $data
+	 * @return string
+	 */
 	protected function getCreateFields(array $data): string {
 		if(is_array($data) && isset($data[0])) {
 			$data = $data[0];
@@ -251,6 +275,12 @@ abstract class Super_Model {
 		return '`'.join('`, `', array_keys($data)).'`';
 	}
 
+	/**
+	 * Gets the placeholder question marks for the create rows
+	 *
+	 * @param array $data
+	 * @return array
+	 */
 	protected function getCreatePlaceholders(array $data): array {
 		$placeholder_sql = [];
 		if(is_array($data) && isset($data[0])) {
@@ -263,6 +293,13 @@ abstract class Super_Model {
 		return $placeholder_sql;
 	}
 
+	/**
+	 * Function to update a row in your model
+	 *
+	 * @param array $data
+	 * @param string $update_field
+	 * @return integer
+	 */
 	public function update(array $data, string $update_field = 'id'): int {
 
 		$update_data = $this->processUpdateData($data, $update_field);
@@ -275,6 +312,13 @@ abstract class Super_Model {
 		return $statement->rowCount();
 	}
 
+	/**
+	 * Generates all the sql from the supplied $data field for the update query
+	 *
+	 * @param array $data
+	 * @param string $update_field
+	 * @return array
+	 */
 	protected function processUpdateData(array $data, string $update_field): array {
 
 		if(!isset($data[$update_field])) {
@@ -296,10 +340,24 @@ abstract class Super_Model {
 		];
 	}
 
+	/**
+	 * Generates the sql string for the update query
+	 *
+	 * @param string $table
+	 * @param string $fields
+	 * @param string $where
+	 * @return string
+	 */
 	protected function getUpdateSql(string $table, string $fields, string $where): string {
 		return "UPDATE `{$table}` SET {$fields} WHERE {$where}";
 	}
 
+	/**
+	 * Generates the update fields and placeholders for the update query
+	 *
+	 * @param array $data
+	 * @return string
+	 */
 	protected function getUpdateFields(array $data): string {
 
 		if(!count($data)) {
@@ -309,6 +367,12 @@ abstract class Super_Model {
 		return '`'.join("` = ?, `", array_keys($data)).'` = ?';
 	}
 
+	/**
+	 * Takes a result (usually by the getBy*() method) and maps it to this object in the $db_values property
+	 *
+	 * @param array $result
+	 * @return void
+	 */
 	protected function mapResultToModel(array $result): void {
 
 		if(isset($result[0])) {
@@ -320,6 +384,12 @@ abstract class Super_Model {
 		}
 	}
 
+	/**
+	 * Main function that takes all the filters for a select statement for this model and parses are goods out of it. It works by taking the filters and stripping out the "known" keys, and the remaining keys become the where statement
+	 *
+	 * @param array $filters
+	 * @return array
+	 */
 	protected function processAllFilters(array $filters): array {
 		$select_fields = $this->processSelectFields($filters);
 		$joins = $this->processJoins($filters);
@@ -328,6 +398,7 @@ abstract class Super_Model {
 		$limit = $this->processLimit($filters);
 		$offset = $this->processOffset($filters);
 		$having = $this->processHaving($filters);
+		$process_results_filters = $this->processResultsFilters($filters);
 
 		$where = $this->buildWhereSqlStringFromFilters($filters);
 
@@ -349,10 +420,25 @@ abstract class Super_Model {
 			'offset' => $offset,
 			'where' => $where,
 			'params' => $params,
-			'sql' => $sql
+			'sql' => $sql,
+			'process_results_filters' => $process_results_filters
 		];
 	}
 
+	/**
+	 * Generates the SQL from the inputted variables
+	 *
+	 * @param string $select_fields
+	 * @param string $table
+	 * @param string $joins
+	 * @param string $where
+	 * @param string $group_by
+	 * @param string $having
+	 * @param string $order_by
+	 * @param string $limit
+	 * @param string $offset
+	 * @return string
+	 */
 	protected function getSelectSql(string $select_fields, string $table, string $joins = '', string $where = '', string $group_by = '', string $having = '', string $order_by = '', string $limit = '', string $offset = ''): string {
 		$array = [
 			$joins,
@@ -367,6 +453,12 @@ abstract class Super_Model {
 		return "{$select_fields} FROM `{$table}` ".join(' ', $array);
 	}
 
+	/**
+	 * Generates the params from the data inputted
+	 *
+	 * @param array $filters
+	 * @return array
+	 */
 	protected function processParams(array $filters) {
 		$filters = array_filter($filters, function($value) { 
 			return $value !== null; 
@@ -374,6 +466,12 @@ abstract class Super_Model {
 		return array_values($filters);
 	}
 
+	/**
+	 * Defines the fields to be selected in the query
+	 *
+	 * @param array $filters
+	 * @return string
+	 */
 	protected function processSelectFields(array &$filters): string {
 		$select_fields = '`'.$this->table.'`.*';
 		if(isset($filters['select_fields'])) {
@@ -385,6 +483,15 @@ abstract class Super_Model {
 		return 'SELECT '.$select_fields;
 	}
 
+	/**
+	 * Helps generate the SQL for all the "known" keys like 'having', 'group_by', etc
+	 *
+	 * @param array $filters
+	 * @param string $field_key
+	 * @param string $sql_statement
+	 * @param string $field_type
+	 * @return string
+	 */
 	protected function processSimpleStatement(array &$filters, string $field_key, string $sql_statement, string $field_type = 'raw'): string {
 		$sql = '';
 		if(isset($filters[$field_key])) {
@@ -396,26 +503,83 @@ abstract class Super_Model {
 		return $sql;
 	}
 
+	/**
+	 * Gets ORDER BY sql
+	 *
+	 * @param array $filters
+	 * @return string
+	 */
 	protected function processOrderBy(array &$filters): string {
 		return $this->processSimpleStatement($filters, 'order_by', 'ORDER BY');
 	}
 
+	/**
+	 * Gets GROUP BY sql
+	 *
+	 * @param array $filters
+	 * @return string
+	 */
 	protected function processGroupBy(array &$filters): string {
 		return $this->processSimpleStatement($filters, 'group_by', 'GROUP BY');
 	}
 
+	/**
+	 * Gets HAVING sql
+	 *
+	 * @param array $filters
+	 * @return string
+	 */
 	protected function processHaving(array &$filters): string {
 		return $this->processSimpleStatement($filters, 'having', 'HAVING');
 	}
 
+	/**
+	 * Gets LIMIT sql
+	 *
+	 * @param array $filters
+	 * @return string
+	 */
 	protected function processLimit(array &$filters): string {
 		return $this->processSimpleStatement($filters, 'limit', 'LIMIT', 'int');
 	}
 
+	/**
+	 * Gets OFFSET sql
+	 *
+	 * @param array $filters
+	 * @return string
+	 */
 	protected function processOffset(array &$filters): string {
 		return $this->processSimpleStatement($filters, 'offset', 'OFFSET', 'int');
 	}
 
+	/**
+	 * Gets the processResults key off the $filters and returns the results to be used in $this->processResults()
+	 *
+	 * @param array $filters
+	 * @return array
+	 */
+	protected function processResultsFilters(array &$filters): array {
+		$process_results_filters = [];
+		if(isset($filters['processResults'])) {
+			
+			if(!is_array($filters['processResults'])) {
+				throw new Exception('processResults needs to be an array');
+			}
+
+			$process_results_filters = $filters['processResults'];
+			unset($filters['processResults']);
+		}
+
+		return $process_results_filters;
+	}
+
+	/**
+	 * Gets the SQL for any joins defined
+	 *
+	 * @param array $filters
+	 * @return string
+	 */
 	protected function processJoins(array &$filters): string {
 		$join_sql_str = '';
 
@@ -426,6 +590,12 @@ abstract class Super_Model {
 		return $join_sql_str;
 	}
 
+	/**
+	 * Builds the where SQL from the remaining $filters left
+	 *
+	 * @param array $filters
+	 * @return string
+	 */
 	protected function buildWhereSqlStringFromFilters(array &$filters): string {
 		$table = $this->table;
 		$this_model = $this;
@@ -443,6 +613,13 @@ abstract class Super_Model {
 		return strlen($sql_str) !== 0 ? 'WHERE '.$sql_str : '';
 	}
 
+	/**
+	 * This is where it's defined what operator to use for the query based on the key given ([ 'some_field' => 'hi', 'another_field->=' => 5 ], >= is the part that gets processed out)
+	 *
+	 * @param string $field
+	 * @param mixed $value
+	 * @return string
+	 */
 	protected function processOperator(string &$field, &$value): string {
 		$operator = '';
 

@@ -513,7 +513,8 @@ class Super_ModelTest extends TestCase {
 			'offset' => '',
 			'where' => '',
 			'params' => [],
-			'sql' => 'SELECT `example_model`.* FROM `example_model` '
+			'sql' => 'SELECT `example_model`.* FROM `example_model` ',
+			'process_results_filters' => []
 		], $result);
 
 		$result = PHPUnitUtil::callMethod($this->obj, 'processAllFilters', [ [ 'some_field' => 5 ] ]);
@@ -527,7 +528,8 @@ class Super_ModelTest extends TestCase {
 			'offset' => '',
 			'where' => 'WHERE `example_model`.`some_field` = ?',
 			'params' => [ 5 ],
-			'sql' => 'SELECT `example_model`.* FROM `example_model` WHERE `example_model`.`some_field` = ?'
+			'sql' => 'SELECT `example_model`.* FROM `example_model` WHERE `example_model`.`some_field` = ?',
+			'process_results_filters' => []
 		], $result);
 
 		$result = PHPUnitUtil::callMethod($this->obj, 'processAllFilters', [ [ 'some_field-!=' => 'bananas', 'group_by' => 'some bailing wire' ] ]);
@@ -541,7 +543,8 @@ class Super_ModelTest extends TestCase {
 			'offset' => '',
 			'where' => 'WHERE `example_model`.`some_field` != ?',
 			'params' => [ 'bananas' ],
-			'sql' => 'SELECT `example_model`.* FROM `example_model` WHERE `example_model`.`some_field` != ? GROUP BY some bailing wire'
+			'sql' => 'SELECT `example_model`.* FROM `example_model` WHERE `example_model`.`some_field` != ? GROUP BY some bailing wire',
+			'process_results_filters' => []
 		], $result);
 
 		$result = PHPUnitUtil::callMethod($this->obj, 'processAllFilters', [ [ 'some_field-!=' => 'bananas', 'another_field' => 'not null', 'one_more_thing' => null, 'group_by' => 'some bailing wire' ] ]);
@@ -555,7 +558,8 @@ class Super_ModelTest extends TestCase {
 			'offset' => '',
 			'where' => 'WHERE `example_model`.`some_field` != ? AND `example_model`.`another_field` IS NOT NULL AND `example_model`.`one_more_thing` IS NULL',
 			'params' => [ 'bananas' ],
-			'sql' => 'SELECT `example_model`.* FROM `example_model` WHERE `example_model`.`some_field` != ? AND `example_model`.`another_field` IS NOT NULL AND `example_model`.`one_more_thing` IS NULL GROUP BY some bailing wire'
+			'sql' => 'SELECT `example_model`.* FROM `example_model` WHERE `example_model`.`some_field` != ? AND `example_model`.`another_field` IS NOT NULL AND `example_model`.`one_more_thing` IS NULL GROUP BY some bailing wire',
+			'process_results_filters' => []
 		], $result);
 	}
 
@@ -600,5 +604,90 @@ class Super_ModelTest extends TestCase {
 		$filters = [ 0 => 'weee', 'thanks' => null, 'ok' => 'whatever' ];
 		$result = PHPUnitUtil::callMethod($this->obj, 'processParams', [ $filters ]);
 		$this->assertSame([ 0 => 'weee', 1 => 'whatever' ], $result);
+	}
+
+	public function testProcessResultsFilters() {
+		$filters = [];
+		$result = PHPUnitUtil::callMethod($this->obj, 'processResultsFilters', [ &$filters ]);
+		$this->assertSame([], $filters);
+		$this->assertSame([], $result);
+
+		$filters = [ 'some_field' => 'whatever' ];
+		$result = PHPUnitUtil::callMethod($this->obj, 'processResultsFilters', [ &$filters ]);
+		$this->assertSame([ 'some_field' => 'whatever' ], $filters);
+		$this->assertSame([], $result);
+
+		try {
+			$filters = [ 'some_field' => 'whatever', 'processResults' => 'whatever' ];
+			PHPUnitUtil::callMethod($this->obj, 'processResultsFilters', [ &$filters ]);
+			$this->fail('Should have failed');
+		} catch(Exception $e) {
+			$this->assertSame('processResults needs to be an array', $e->getMessage());
+		}
+
+		$filters = [ 'some_field' => 'whatever', 'processResults' => [ 5 ] ];
+		$result = PHPUnitUtil::callMethod($this->obj, 'processResultsFilters', [ &$filters ]);
+		$this->assertSame([ 'some_field' => 'whatever' ], $filters);
+		$this->assertSame([ 5 ], $result);
+
+		$filters = [ 'some_field' => 'whatever', 'processResults' => [ 'some_key' => false ] ];
+		$result = PHPUnitUtil::callMethod($this->obj, 'processResultsFilters', [ &$filters ]);
+		$this->assertSame([ 'some_field' => 'whatever' ], $filters);
+		$this->assertSame([ 'some_key' => false ], $result);
+	}
+
+	public function testProcessResults() {
+		$process_results_filters = [];
+		$results = [ 0 => 'thanks' ];
+		$result = PHPUnitUtil::callMethod($this->obj, 'processResults', [ $process_results_filters, $results ]);
+		$this->assertSame([ 0 => 'thanks' ], $result);
+
+		$process_results_filters = [];
+		$results = [ 0 => 5.5 ];
+		$result = PHPUnitUtil::callMethod($this->obj, 'processResults', [ $process_results_filters, $results ]);
+		$this->assertSame([ 0 => 5.5 ], $result);
+
+		$process_results_filters = [ 'some_field' => 'whatever' ];
+		$results = [ 0 => [ 'some_field' => 5.5 ] ];
+		$result = PHPUnitUtil::callMethod($this->obj, 'processResults', [ $process_results_filters, $results ]);
+		$this->assertSame([ 0 => [ 'some_field' => 5.5 ] ], $result);
+
+		$process_results_filters = [ 'some_field' => true ];
+		$results = [ 0 => [ 'some_field' => 5.5 ] ];
+		$result = PHPUnitUtil::callMethod($this->obj, 'processResults', [ $process_results_filters, $results ]);
+		$this->assertSame([ 0 => [ 'some_field' => 5.5, 'added_new_field' => 'totally true' ] ], $result);
+
+		$process_results_filters = [ 'some_field' => true ];
+		$results = [ 0 => [ 'some_field' => 5.5 ] ];
+		$obj = new Example_Model_Wide_Open($this->pdo);
+		$result = PHPUnitUtil::callMethod($obj, 'processResults', [ $process_results_filters, $results ]);
+		$this->assertSame([ 0 => [ 'some_field' => 5.5 ] ], $result);
+	}
+
+	public function testProcessResult() {
+		$process_results_filters = [];
+		$results = [ 0 => 'thanks' ];
+		$result = $this->obj->processResult($process_results_filters, $results);
+		$this->assertSame([ 0 => 'thanks' ], $result);
+
+		$process_results_filters = [];
+		$results = [ 0 => 5.5 ];
+		$result = $this->obj->processResult($process_results_filters, $results);
+		$this->assertSame([ 0 => 5.5 ], $result);
+
+		$process_results_filters = [ 'some_field' => 'whatever' ];
+		$results = [ 0 => [ 'some_field' => 5.5 ] ];
+		$result = $this->obj->processResult($process_results_filters, $results);
+		$this->assertSame([ 0 => [ 'some_field' => 5.5 ] ], $result);
+
+		$process_results_filters = [ 'some_field' => true ];
+		$results = [ 0 => [ 'some_field' => 5.5 ] ];
+		$result = $this->obj->processResult($process_results_filters, $results);
+		$this->assertSame([ 0 => [ 'some_field' => 5.5 ], 'added_new_field' => 'totally true' ], $result);
+
+		$process_results_filters = [ 'some_field' => true ];
+		$results = [ 'some_field' => 5.5 ];
+		$result = $this->obj->processResult($process_results_filters, $results);
+		$this->assertSame([ 'some_field' => 5.5, 'added_new_field' => 'totally true' ], $result);
 	}
 }
