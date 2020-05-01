@@ -1,5 +1,6 @@
 ![Dependencies](https://david-dm.org/n0nag0n/super-model.svg)
 [![Build Status](https://travis-ci.org/n0nag0n/super-model.png?branch=master)](https://travis-ci.org/n0nag0n/super-model)
+[![codecov](https://codecov.io/gh/n0nag0n/super-model/branch/master/graph/badge.svg)](https://codecov.io/gh/n0nag0n/super-model)
 [![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/dwyl/esta/issues)
 [![HitCount](http://hits.dwyl.com/n0nag0n/super-model.svg)](http://hits.dwyl.com/n0nag0n/super-model)
 
