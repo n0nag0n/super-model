@@ -6,6 +6,8 @@
 # Super Model
 
 Super model is a very simple ORM type php class to easily interact with tables in a database without writing a ton of SQL code all over the place.
+
+To prove it, here are the lines of code...
 ```
 $ cloc src/
        1 text file.
@@ -18,4 +20,42 @@ Language                     files          blank        comment           code
 -------------------------------------------------------------------------------
 PHP                              1             86            246            347
 -------------------------------------------------------------------------------
+```
+
+## Basic Usage
+Getting started with Super Model is easy, simply extend the super model class and define a table name. That's about it.
+```php
+<?php
+use n0nag0n\Super_Model;
+	class User extends Super_Model {
+		protected $table = 'users';
+	}
+```
+Now what about some simple examples of how she works?
+
+First, lets assume the following table:
+```
+Table: users
+------------------------------------------
+| id | email 				| company_id | 
+| 1  | hi@example.com 		| 50 		 |
+| 2  | another@example.com 	| 61 		 |
+| 3  | whatever@example.com | 61  		 |
+------------------------------------------
+```
+
+```php
+<?php
+// somefile.php
+
+$pdo = new PDO('sqlite::memory:', '', '', [ PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC ]);
+
+$User = new User($pdo);
+
+// WHERE company_id = 5
+$users = $User->getAllByCompany_Id(5);
+
+// same as above
+$users = $User->getAll([ 'company_id' => 5 ]);
+
 ```

@@ -1,0 +1,30 @@
+{
+  "name": "super-model",
+  "version": "1.0.0",
+  "description": "This is a super simple model for PHP to interact with database tables",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "vendor/bin/phpunit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/n0nag0n/super-model.git"
+  },
+  "keywords": [
+    "super",
+    "simple",
+    "model",
+    "that",
+    "is",
+    "awesome"
+  ],
+  "author": "n0nag0n",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/n0nag0n/super-model/issues"
+  },
+  "homepage": "https://github.com/n0nag0n/super-model#readme"
+}
