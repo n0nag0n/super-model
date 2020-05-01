@@ -1,5 +1,8 @@
+![Dependencies](https://david-dm.org/n0nag0n/super-model.svg)
+
 # Super Model
 
+Super model is a very simple ORM type php class to easily interact with tables in a database without writing a ton of SQL code all over the place.
 ```
 $ cloc src/
        1 text file.
