@@ -26,6 +26,8 @@
 	},
 	"config" : {
 		"optimize-autoloader": true
+	},
+	"scripts" : {
+		"test" : [ "phpunit", "phpstan analyse src/ tests/" ]
 	}
-	
 }

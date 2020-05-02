@@ -78,7 +78,7 @@ abstract class Super_Model {
 		$has_get_by = strpos($method, 'getBy') !== false;
 		$has_get_by_all = strpos($method, 'getAllBy') !== false;
 		if($has_get_by || $has_get_by_all) {
-			$field = strtolower(str_ireplace([ 'getBy', 'getAllBy' ], '', $method));
+			$field = str_ireplace([ 'getBy', 'getAllBy' ], '', $method);
 			if(empty($field)) {
 				throw new Exception('unable to parse out field');
 			}

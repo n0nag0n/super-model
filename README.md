@@ -6,7 +6,7 @@
 
 # Super Model
 
-Super model is a very simple ORM type php class to easily interact with tables in a database without writing a ton of SQL code all over the place.
+Super model is a very simple ORM type php class to easily interact with tables in a database without writing a ton of SQL code all over the place. 
 
 To prove it, here are the lines of code...
 ```
@@ -22,6 +22,8 @@ Language                     files          blank        comment           code
 PHP                              1             86            246            347
 -------------------------------------------------------------------------------
 ```
+
+This is written with performance in mind. So while it will not satisfy every single requirement in every project that's ever been built, it will work in the majority of cases, and do a kick butt job at it too!
 
 ## Basic Usage
 Getting started with Super Model is easy, simply extend the super model class and define a table name. That's about it.
@@ -53,10 +55,98 @@ $pdo = new PDO('sqlite::memory:', '', '', [ PDO::ATTR_DEFAULT_FETCH_MODE => PDO:
 
 $User = new User($pdo);
 
-// WHERE company_id = 5
-$users = $User->getAllByCompany_Id(5);
+// WHERE company_id = 50
+$users = $User->getAllBycompany_id(50);
 
 // same as above
-$users = $User->getAll([ 'company_id' => 5 ]);
+$users = $User->getAll([ 'company_id' => 50 ]);
 
 ```
+Easy peasy, lemon squeezy right?
+
+## Docs
+### `getBy*(mixed $value): array [result]`
+This is a method that returns one row back from the value specified. The `*` part of the method refers to a field in the database. The field name is case-sensitive to whatever your field name is on your database table.
+```php
+
+// get by the id field on the users table
+$User->getByid(3);
+
+/* 
+	[ 
+		'id' => 3,
+		'email' => 'whatever@example.com',
+		'company_id' => 61
+	]
+*/
+$User->getBycompany_id(61);
+/* 
+	// it only will pull the first row, not all rows
+	[ 
+		'id' => 2,
+		'email' => 'another@example.com',
+		'company_id' => 61
+	]
+*/
+```
+
+### `getAllBy*(mixed $value): array [ [result], [result] ]`
+This is a shortcut filter to return all rows by a given value. The `*` part of the method refers to a field in the database. The field name is case-sensitive to whatever your field name is on your database table.
+```php
+
+// this is pointless, but will still work
+$User->getAllByid(3);
+
+/* 
+	[
+		[ 
+			'id' => 3,
+			'email' => 'whatever@example.com',
+			'company_id' => 61
+		]
+	]
+*/
+$User->getAllBycompany_id(61);
+/* 
+	[
+		[ 
+			'id' => 2,
+			'email' => 'another@example.com',
+			'company_id' => 61
+		],
+		[ 
+			'id' => 3,
+			'email' => 'whatever@example.com',
+			'company_id' => 61
+		]
+	]
+*/
+```
+
+### `create(array $data): int [insert id]`
+This will create a single row on the table, but if you supply a multi-dimensional array, it will insert multiple rows. A primary key of `id` is assumed.
+```php
+$User->create([ 'email' => 'onemore@example.com', 'company_id' => 55 ]);
+// returns 4
+
+$User->create([ [ 'email' => 'ok@example.com', 'company_id' => 55 ], [ 'email' => 'thanks@example.com', 'company_id' => 56 ] ]);
+// returns 6, only the last id will be returned
+```
+
+### `update(array $data, string $update_field = 'id'): int (number of rows updated)`
+This will create a single row on the table, but if you supply a multi-dimensional array, it will insert multiple rows. A primary key of `id` is assumed.
+```php
+$User->update([ 'id' => 1, 'email' => 'whoneedsemail@example.com' ]);
+// returns 1 and will only update the email field
+
+$User->update([ 'email' => 'whoneedsemail@example.com', 'company_id' => 61 ], 'email');
+// returns 1
+
+$User->update([ 'company_id' => 61, 'email' => 'donotreply@example.com' ], 'company_id');
+// returns 3, not really logical, but it would update all the emails
+```
+
+## Testing
+Simply run `composer test` to run `phpunit` and `phpstan`. Currently at 100% coverage and that's where I'd like to keep it. 
+
+*A note about 100% coverage:* While the code may have 100% coverage, **actual** coverage is different. The goal is to test many different scenarios against the code to think through the code and anticipate unexpected results. I code to "real" coverage, not "did the code run" coverage. 
