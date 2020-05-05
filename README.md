@@ -39,12 +39,12 @@ Now what about some simple examples of how she works?
 First, lets assume the following table:
 ```
 Table: users
-------------------------------------------------------
+---------------------------------------------------------
 | id		| email			| company_id	| 
 | 1		| hi@example.com	| 50		|
 | 2		| another@example.com	| 61		|
 | 3		| whatever@example.com	| 61		|
-------------------------------------------------------
+---------------------------------------------------------
 ```
 
 ```php
