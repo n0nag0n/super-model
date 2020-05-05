@@ -1,6 +1,6 @@
 {
-    "name": "n0nag0n/simple-model",
-    "description": "A simple base model you can extend to reduce your hard coded SQL queries.",
+    "name": "n0nag0n/super-model",
+    "description": "A simple base model you can extend to reduce your hard coded SQL queries and get 90% of your db requests done quick.",
     "type": "library",
     "require-dev": {
         "phpunit/phpunit": "^8.5",
