@@ -123,6 +123,9 @@ $User->getAllBycompany_id(61);
 */
 ```
 
+### `getAll(array $filters, bool $return_one_row = false): array [ [result], [result] ] or [result]`
+
+
 ### `create(array $data): int [insert id]`
 This will create a single row on the table, but if you supply a multi-dimensional array, it will insert multiple rows. A primary key of `id` is assumed.
 ```php
@@ -144,6 +147,80 @@ $User->update([ 'email' => 'whoneedsemail@example.com', 'company_id' => 61 ], 'e
 
 $User->update([ 'company_id' => 61, 'email' => 'donotreply@example.com' ], 'company_id');
 // returns 3, not really logical, but it would update all the emails
+```
+
+## FAQ (Advanced Usage)
+
+*What if you want an automated way to alter your result if a specific flag is fired?*
+Easy peasy. There is a method called `processResult()` that will run through every result you pull back. You inject special filters for this method in the `$filters['processResults']` key.
+```php
+<?php
+	use n0nag0n\Super_Model;
+	class User extends Super_Model {
+		protected $table = 'users';
+
+		public processResult(array $process_filters, array $result): array {
+
+			// add some trigger here and do whatever checks you need
+			if(isset($process_filters['set_full_name']) && $process_filters['set_full_name'] === true && !empty($result['first_name']) && !empty($result['last_name'])) {
+				$result['full_name'] = $result['first_name'].' '.$result['last_name'];
+			}
+
+			return $result;
+		}
+	}
+
+	// later on in some other file.
+	$User = new User($pdo);
+
+	// setting the processResults filter here is the key to connecting the getAll statement with your processResult method
+	$users = $User->getAll([ 'company_id' => 51, 'processResults' => [ 'set_full_name' => true ] ]);
+
+	echo $users[0]['full_name']; // Bob Smith
+```
+
+
+*What if you need to do a crazy complex SQL query that doesn't fall in the realm of this class or the `getAll()` filters?*
+
+Remember the point of this class is **NOT** to satisfy every requirement from every project that ever has or will exist, but it will get you 90% the way there. In light of that, there is a simple way to execute the above question. Just use RAW SQL for your one off.
+```php
+<?php
+	use n0nag0n\Super_Model;
+	class User extends Super_Model {
+		protected $table = 'users';
+
+		public function processCrazyKukooQuery(/* add whatever required fields you need */): array {
+			$db = $this->getDbConnection();
+
+			// shamelessly ripped from StackOverflow
+			$statement = $db->prepare("SELECT 
+				DISTINCT
+				t.id,
+				t.tag, 
+				c.title AS Category
+				FROM
+				tags2Articles t2a 
+				INNER JOIN tags t ON t.id = t2a.idTag
+				INNER JOIN categories c ON t.tagCategory = c.id
+				INNER JOIN (
+					SELECT
+					a.id 
+					FROM 
+					articles AS a
+					JOIN tags2articles AS ta  ON a.id=ta.idArticle
+					JOIN tags AS tsub ON ta.idTag=tsub.id
+					WHERE 
+					tsub.id IN (12,13,16) 
+					GROUP BY a.id
+					HAVING COUNT(DISTINCT tsub.id)=3 
+				) asub ON t2a.idArticle = asub.id");
+			$statement->execute();
+
+			$return $statement->fetchAll();
+		}
+	}
+
+	
 ```
 
 ## Testing
