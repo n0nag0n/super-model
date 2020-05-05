@@ -216,7 +216,7 @@ Remember the point of this class is **NOT** to satisfy every requirement from ev
 				) asub ON t2a.idArticle = asub.id");
 			$statement->execute();
 
-			$return $statement->fetchAll();
+			return $statement->fetchAll();
 		}
 	}
 
