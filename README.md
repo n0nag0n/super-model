@@ -175,6 +175,8 @@ $filters = [
 	// offset
 	'offset' => 10000,
 ];
+
+$users = $User->getAll($filters);
 ```
 There are also some basic config options with the model properties.
 #### $disallow_wide_open_queries
