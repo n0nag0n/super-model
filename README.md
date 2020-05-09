@@ -30,9 +30,9 @@ Getting started with Super Model is easy, simply extend the super model class an
 ```php
 <?php
 use n0nag0n\Super_Model;
-	class User extends Super_Model {
-		protected $table = 'users';
-	}
+class User extends Super_Model {
+	protected $table = 'users';
+}
 ```
 Now what about some simple examples of how she works?
 
@@ -124,7 +124,68 @@ $User->getAllBycompany_id(61);
 ```
 
 ### `getAll(array $filters, bool $return_one_row = false): array [ [result], [result] ] or [result]`
+This is the filter where you can add a bunch of customization to filter the data from your table. There are a few unique keys to be aware of and some operators to help you pull your specific data.
+```php
+// Full example
+$filters = [
 
+	//
+	// arguments in the WHERE statement
+	//
+	'some_field' => 5, // some_field = ?
+	'some_field-=' => 5, // some_field = ?
+	'another_field' => 'IS NULL', // some_field IS NULL
+	'another_field' => 'IS NOT NULL', // some_field IS NOT NULL
+	'another_field->' => 'Apple', // another_field > ?
+	'another_field->=' => 'Apple', // another_field >= ?
+	'another_field-<' => 'Apple', // another_field < ?
+	'another_field-<=' => 'Apple', // another_field <= ?
+	'another_field-!=' => 'Apple', // another_field != ?
+	'another_field-<>' => 'Apple', // another_field <> ?
+	'another_field-LIKE' => 'Ap%ple', // another_field LIKE ?
+	'another_field-NOT LIKE' => 'Apple%', // another_field NOT LIKE ?
+	'another_field-IN' => [ 'Apple', 'Banana', 'Peach' ], // another_field IN(??) double question mark gets parsed as array
+	'another_field-NOT IN' => [ 'Apple', 'Banana', 'Peach' ], // another_field NOT IN(??) double question mark gets parsed as array
+
+	// If you need some custom action
+	'another_field-RAW-> DATE_SUB(?, INTERVAL 1 DAY)' => '1980-01-01', // another_field > DATE_SUB(?, INTERVAL 1 DAY)
+
+	//
+	// Other parts of the query
+	//
+
+	// choose what columns you want to select
+	'select_fields' => 'id, first_name',
+
+	// Get any joins
+	'joins' => [ 'LEFT JOIN companies ON companies.id = users.company_id' ],
+
+	// Group by
+	'group_by' => 'company_id',
+
+	// having
+	'having' => 'count > 5',
+
+	// order by
+	'order_by' => 'id DESC',
+
+	// limit
+	'limit' => 15,
+
+	// offset
+	'offset' => 10000,
+];
+```
+There are also some basic config options with the model properties.
+#### $disallow_wide_open_queries
+If you have a model that you know will always return a small result set and want to be able to query the entire table, set this property. Otherwise it is a protection so that if no sql params were supplied, you wouldn't retrieve back the entire result set (which could crash and burn many things).
+```php
+use n0nag0n\Super_Model;
+class User extends Super_Model {
+	protected $table = 'users';
+	protected $disallow_wide_open_queries = false;
+}
+```
 
 ### `create(array $data): int [insert id]`
 This will create a single row on the table, but if you supply a multi-dimensional array, it will insert multiple rows. A primary key of `id` is assumed.
