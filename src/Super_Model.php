@@ -376,7 +376,7 @@ abstract class Super_Model {
 	protected function mapResultToModel(array $result): void {
 
 		if(isset($result[0])) {
-			throw new Exception('cannot map multi-dimentional arrays');
+			throw new Exception('cannot map multi-dimensional arrays');
 		}
 
 		foreach($result as $key => $value) {
